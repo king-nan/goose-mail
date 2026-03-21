@@ -107,6 +107,8 @@ class Database:
                 from_id TEXT NOT NULL,
                 to_id TEXT NOT NULL,
                 encrypted_content TEXT NOT NULL,
+                nonce TEXT NOT NULL,
+                tag TEXT NOT NULL,
                 encrypted_aes_key TEXT,
                 sender_signature TEXT,
                 msg_type TEXT DEFAULT 'text',
@@ -326,14 +328,16 @@ class Database:
         
         cursor.execute('''
             INSERT INTO messages (
-                id, from_id, to_id, encrypted_content, encrypted_aes_key,
-                sender_signature, msg_type, status, created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                id, from_id, to_id, encrypted_content, nonce, tag,
+                encrypted_aes_key, sender_signature, msg_type, status, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', (
             message_data["id"],
             message_data["from_id"],
             message_data["to_id"],
             message_data["encrypted_content"],
+            message_data.get("nonce", ""),
+            message_data.get("tag", ""),
             message_data.get("encrypted_aes_key"),
             message_data.get("sender_signature"),
             message_data.get("msg_type", "text"),

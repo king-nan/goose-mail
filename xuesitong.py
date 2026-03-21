@@ -161,7 +161,7 @@ class XueSitong:
     def send(self, from_id: str, to_id: str, message: str, 
              msg_type: str = "text") -> bool:
         """
-        发送加密消息（简化版 MVP）
+        发送加密消息
         
         Args:
             from_id: 发送者 ID
@@ -172,13 +172,28 @@ class XueSitong:
         Returns:
             是否发送成功
         """
+        from cryptography.hazmat.primitives.asymmetric import padding
+        from cryptography.hazmat.primitives import hashes, serialization
+        import base64
+        
         # 获取接收者信息
         student = self.db.get_student(to_id)
         if not student:
             raise ValueError(f"学生不存在：{to_id}")
         
-        # 简化加密（MVP 版本，暂不实现完整签名）
+        # 加密消息
         encrypted = self.crypto_manager.encrypt_message(message)
+        
+        # 用接收者公钥加密 AES 密钥
+        public_key = serialization.load_pem_public_key(student["public_key"].encode())
+        encrypted_aes_key = public_key.encrypt(
+            base64.b64decode(encrypted["aes_key"]),
+            padding.OAEP(
+                mgf=padding.MGF1(algorithm=hashes.SHA256()),
+                algorithm=hashes.SHA256(),
+                label=None
+            )
+        )
         
         # 构建消息数据
         message_data = {
@@ -186,7 +201,9 @@ class XueSitong:
             "from_id": from_id,
             "to_id": to_id,
             "encrypted_content": encrypted["ciphertext"],
-            "encrypted_aes_key": encrypted["aes_key"],  # 简化：不 RSA 加密 AES 密钥
+            "nonce": encrypted["nonce"],
+            "tag": encrypted["tag"],
+            "encrypted_aes_key": base64.b64encode(encrypted_aes_key).decode(),
             "sender_signature": "mvp_placeholder",
             "msg_type": msg_type,
             "status": "pending",
@@ -227,15 +244,25 @@ class XueSitong:
         Returns:
             消息列表
         """
+        from cryptography.hazmat.primitives.asymmetric import padding
+        from cryptography.hazmat.primitives import hashes, serialization
+        import base64
+        
         # 获取学生信息
         student = self.db.get_student(student_id)
         if not student:
             raise ValueError(f"学生不存在：{student_id}")
         
-        # 解密私钥
-        private_key = self.key_manager.decrypt_private_key(
+        # 解密私钥（返回 PEM 字符串）
+        private_key_pem = self.key_manager.decrypt_private_key(
             student["encrypted_private_key"],
             password
+        )
+        
+        # 加载私钥对象
+        private_key = serialization.load_pem_private_key(
+            private_key_pem.encode(),
+            password=None
         )
         
         # 获取消息
@@ -245,12 +272,7 @@ class XueSitong:
         decrypted_messages = []
         for msg in messages:
             try:
-                # 解密 AES 密钥
-                from cryptography.hazmat.primitives.asymmetric import padding
-                from cryptography.hazmat.primitives import hashes
-                from cryptography.hazmat.primitives.serialization import load_pem_private_key
-                import base64
-                
+                # 用私钥解密 AES 密钥
                 aes_key = private_key.decrypt(
                     base64.b64decode(msg["encrypted_aes_key"]),
                     padding.OAEP(
@@ -260,24 +282,21 @@ class XueSitong:
                     )
                 )
                 
-                # 解密消息内容
-                from .core.crypto import CryptoManager
-                cm = CryptoManager()
-                
+                # 构建加密数据包
                 encrypted_msg = {
                     "ciphertext": msg["encrypted_content"],
-                    "nonce": "pending",  # TODO: 存储 nonce
-                    "tag": "pending",
+                    "nonce": msg["nonce"],
+                    "tag": msg["tag"],
                     "aes_key": base64.b64encode(aes_key).decode()
                 }
                 
-                # TODO: 完善解密逻辑
-                # content = cm.decrypt_message(encrypted_msg, aes_key)
+                # 解密消息内容
+                content = self.crypto_manager.decrypt_message(encrypted_msg, aes_key)
                 
                 decrypted_messages.append({
                     "id": msg["id"],
                     "from_id": msg["from_id"],
-                    "content": "[待完善解密逻辑]",
+                    "content": content,
                     "created_at": msg["created_at"]
                 })
                 
