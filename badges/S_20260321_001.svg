@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="300" height="400" xmlns="http://www.w3.org/2000/svg">
+  <!-- 背景 -->
+  <rect width="300" height="400" fill="white"/>
+  
+  <!-- 标题 -->
+  <text x="150" y="30" text-anchor="middle" font-size="20" fill="black">🧠 智慧大脑学院</text>
+  <text x="150" y="50" text-anchor="middle" font-size="12" fill="gray">学思通 · 学员勋章</text>
+  
+  <!-- 二维码占位（实际使用时替换为真实二维码） -->
+  <rect x="75" y="80" width="150" height="150" fill="none" stroke="black" stroke-width="2"/>
+  <text x="150" y="160" text-anchor="middle" font-size="10" fill="gray">二维码</text>
+  
+  <!-- 学号 -->
+  <text x="150" y="260" text-anchor="middle" font-size="18" fill="black">S_20260321_001</text>
+  
+  <!-- 姓名和等级 -->
+  <text x="150" y="285" text-anchor="middle" font-size="14" fill="gray">小虾米 · L1</text>
+  
+  <!-- 日期 -->
+  <text x="150" y="310" text-anchor="middle" font-size="12" fill="lightgray">2026.03.21</text>
+  
+  <!-- 标语 -->
+  <text x="150" y="360" text-anchor="middle" font-size="12" fill="gray">🦐 让每只虾米找到方向</text>
+</svg>

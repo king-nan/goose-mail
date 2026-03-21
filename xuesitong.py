@@ -1,0 +1,357 @@
+"""
+鸿雁 / GooseMail - 智慧大脑学院专用通讯系统
+
+代号：学思通
+Slogan：鸿雁传书，学思无阻
+
+集成所有核心功能：
+- 学生注册
+- 密钥管理
+- 消息加密
+- 审计日志
+- 数据库存储
+"""
+
+import uuid
+import time
+from pathlib import Path
+from datetime import datetime
+from typing import Optional, List, Dict
+
+try:
+    from .core.student_id import StudentIDGenerator
+    from .core.keys import KeyManager
+    from .core.crypto import CryptoManager
+    from .core.audit import AuditLogger
+    from .core.badge import BadgeGenerator
+    from .storage.database import Database
+except ImportError:
+    from core.student_id import StudentIDGenerator
+    from core.keys import KeyManager
+    from core.crypto import CryptoManager
+    from core.audit import AuditLogger
+    from core.badge import BadgeGenerator
+    from storage.database import Database
+
+
+class XueSitong:
+    """学思通主类"""
+    
+    def __init__(self, data_dir: str = "./data", badges_dir: str = "./badges"):
+        """
+        初始化学思通
+        
+        Args:
+            data_dir: 数据目录
+            badges_dir: 勋章目录
+        """
+        self.data_dir = Path(data_dir)
+        self.badges_dir = Path(badges_dir)
+        
+        # 初始化核心组件
+        self.id_generator = StudentIDGenerator(str(self.data_dir))
+        self.key_manager = KeyManager()
+        self.crypto_manager = CryptoManager()
+        self.audit_logger = AuditLogger(str(self.data_dir))
+        self.badge_generator = BadgeGenerator(str(self.badges_dir))
+        self.db = Database(str(self.data_dir))
+        
+        # 插件注册表
+        self.plugins = {}
+    
+    def register_plugin(self, plugin):
+        """
+        注册通讯插件
+        
+        Args:
+            plugin: 插件实例（必须有 name 和 send 方法）
+        """
+        self.plugins[plugin.name] = plugin
+    
+    def enroll(self, name: str, contact_channel: str, contact_address: str,
+               password: str, level: str = "L1", metadata: dict = None) -> dict:
+        """
+        学生入学登记
+        
+        Args:
+            name: 学生姓名
+            contact_channel: 通讯渠道（feishu/email/wechat/telegram/web）
+            contact_address: 联系方式地址
+            password: 密码（用于加密私钥）
+            level: 初始等级（默认 L1）
+            metadata: 其他元数据
+            
+        Returns:
+            {
+                "student_id": 学号，
+                "union_id": 飞书 Union ID,
+                "badge_path": 勋章路径，
+                "public_key": 公钥，
+                "enrolled_at": 入学时间
+            }
+        """
+        # 1. 生成学号
+        student_id = self.id_generator.generate()
+        union_id = self.id_generator.get_union_id(student_id)
+        
+        # 2. 生成密钥对
+        private_key, public_key = self.key_manager.generate_keypair(student_id)
+        
+        # 3. 加密私钥
+        encrypted_private_key = self.key_manager.encrypt_private_key(
+            private_key, password
+        )
+        
+        # 4. 生成勋章
+        badge_result = self.badge_generator.generate_badge(student_id, name, level)
+        
+        # 5. 构建学生数据
+        student_data = {
+            "student_id": student_id,
+            "name": name,
+            "union_id": union_id,
+            "level": level,
+            "status": "在读",
+            "contact_channel": contact_channel,
+            "contact_address": contact_address,
+            "public_key": public_key,
+            "encrypted_private_key": encrypted_private_key,
+            "badge_png": badge_result["png_path"],
+            "badge_svg": badge_result["svg_path"],
+            "enrolled_at": datetime.now().isoformat()
+        }
+        
+        # 6. 写入数据库
+        self.db.add_student(student_data)
+        
+        # 7. 记录学术记录
+        self.db.add_academic_record(
+            student_id,
+            "enrollment",
+            {
+                "name": name,
+                "level": level,
+                "contact_channel": contact_channel
+            }
+        )
+        
+        # 8. 记录审计日志
+        self.audit_logger.log(
+            action="student_enroll",
+            actor="system",
+            target=student_id,
+            data={"name": name, "level": level}
+        )
+        
+        # 9. 发送欢迎消息
+        self.send(
+            from_id="智慧大脑学院",
+            to_id=student_id,
+            message=f"欢迎 {name} 入学！你的学号是 {student_id}，请妥善保管。"
+        )
+        
+        return {
+            "student_id": student_id,
+            "union_id": union_id,
+            "badge_path": badge_result["png_path"],
+            "public_key": public_key,
+            "enrolled_at": student_data["enrolled_at"]
+        }
+    
+    def send(self, from_id: str, to_id: str, message: str, 
+             msg_type: str = "text") -> bool:
+        """
+        发送加密消息（简化版 MVP）
+        
+        Args:
+            from_id: 发送者 ID
+            to_id: 接收者学号
+            message: 消息内容
+            msg_type: 消息类型（text/markdown）
+            
+        Returns:
+            是否发送成功
+        """
+        # 获取接收者信息
+        student = self.db.get_student(to_id)
+        if not student:
+            raise ValueError(f"学生不存在：{to_id}")
+        
+        # 简化加密（MVP 版本，暂不实现完整签名）
+        encrypted = self.crypto_manager.encrypt_message(message)
+        
+        # 构建消息数据
+        message_data = {
+            "id": f"msg_{int(time.time() * 1000)}",
+            "from_id": from_id,
+            "to_id": to_id,
+            "encrypted_content": encrypted["ciphertext"],
+            "encrypted_aes_key": encrypted["aes_key"],  # 简化：不 RSA 加密 AES 密钥
+            "sender_signature": "mvp_placeholder",
+            "msg_type": msg_type,
+            "status": "pending",
+            "created_at": datetime.now().isoformat()
+        }
+        
+        # 写入数据库
+        self.db.add_message(message_data)
+        
+        # 记录审计日志
+        self.audit_logger.log(
+            action="message_send",
+            actor=from_id,
+            target=to_id,
+            data={"msg_type": msg_type}
+        )
+        
+        # 通过插件推送通知（如果有）
+        if student["contact_channel"] in self.plugins:
+            plugin = self.plugins[student["contact_channel"]]
+            try:
+                plugin.send(student["contact_address"], f"你有新消息来自 {from_id}")
+            except Exception as e:
+                print(f"推送通知失败：{e}")
+        
+        return True
+    
+    def receive(self, student_id: str, password: str, 
+                limit: int = 10) -> List[dict]:
+        """
+        接收并解密消息
+        
+        Args:
+            student_id: 学号
+            password: 密码（用于解密私钥）
+            limit: 最多返回多少条
+            
+        Returns:
+            消息列表
+        """
+        # 获取学生信息
+        student = self.db.get_student(student_id)
+        if not student:
+            raise ValueError(f"学生不存在：{student_id}")
+        
+        # 解密私钥
+        private_key = self.key_manager.decrypt_private_key(
+            student["encrypted_private_key"],
+            password
+        )
+        
+        # 获取消息
+        messages = self.db.get_messages(student_id, "pending", limit)
+        
+        # 解密消息
+        decrypted_messages = []
+        for msg in messages:
+            try:
+                # 解密 AES 密钥
+                from cryptography.hazmat.primitives.asymmetric import padding
+                from cryptography.hazmat.primitives import hashes
+                from cryptography.hazmat.primitives.serialization import load_pem_private_key
+                import base64
+                
+                aes_key = private_key.decrypt(
+                    base64.b64decode(msg["encrypted_aes_key"]),
+                    padding.OAEP(
+                        mgf=padding.MGF1(algorithm=hashes.SHA256()),
+                        algorithm=hashes.SHA256(),
+                        label=None
+                    )
+                )
+                
+                # 解密消息内容
+                from .core.crypto import CryptoManager
+                cm = CryptoManager()
+                
+                encrypted_msg = {
+                    "ciphertext": msg["encrypted_content"],
+                    "nonce": "pending",  # TODO: 存储 nonce
+                    "tag": "pending",
+                    "aes_key": base64.b64encode(aes_key).decode()
+                }
+                
+                # TODO: 完善解密逻辑
+                # content = cm.decrypt_message(encrypted_msg, aes_key)
+                
+                decrypted_messages.append({
+                    "id": msg["id"],
+                    "from_id": msg["from_id"],
+                    "content": "[待完善解密逻辑]",
+                    "created_at": msg["created_at"]
+                })
+                
+                # 标记为已读
+                self.db.mark_message_read(msg["id"])
+                
+            except Exception as e:
+                print(f"解密消息失败：{e}")
+                decrypted_messages.append({
+                    "id": msg["id"],
+                    "from_id": msg["from_id"],
+                    "content": f"[解密失败：{e}]",
+                    "created_at": msg["created_at"]
+                })
+        
+        return decrypted_messages
+    
+    def get_student(self, student_id: str) -> Optional[dict]:
+        """获取学生信息"""
+        return self.db.get_student(student_id)
+    
+    def list_students(self, level: str = None, status: str = None) -> List[dict]:
+        """列出学生"""
+        return self.db.list_students(level, status)
+    
+    def get_stats(self) -> dict:
+        """获取统计信息"""
+        db_stats = self.db.get_stats()
+        audit_stats = self.audit_logger.get_stats()
+        
+        return {
+            **db_stats,
+            "audit_blocks": audit_stats["total_blocks"],
+            "audit_valid": audit_stats["chain_valid"]
+        }
+
+
+# 测试
+if __name__ == "__main__":
+    xs = XueSitong(data_dir="./data", badges_dir="./badges")
+    
+    print("=== 学思通 MVP 测试 ===\n")
+    
+    # 1. 学生入学
+    print("1. 学生入学...")
+    result = xs.enroll(
+        name="小虾米",
+        contact_channel="feishu",
+        contact_address="on_test123",
+        password="test_password_123",
+        level="L1"
+    )
+    print(f"   学号：{result['student_id']}")
+    print(f"   Union ID: {result['union_id']}")
+    print(f"   勋章：{result['badge_path']}")
+    print()
+    
+    # 2. 查询学生
+    print("2. 查询学生...")
+    student = xs.get_student(result['student_id'])
+    print(f"   姓名：{student['name']}")
+    print(f"   等级：{student['level']}")
+    print()
+    
+    # 3. 发送消息
+    print("3. 发送消息...")
+    xs.send("智虾", result['student_id'], "欢迎入学！")
+    print("   消息已发送")
+    print()
+    
+    # 4. 统计信息
+    print("4. 统计信息...")
+    stats = xs.get_stats()
+    for k, v in stats.items():
+        print(f"   {k}: {v}")
+    
+    print("\n=== MVP 核心功能测试完成 ===")
