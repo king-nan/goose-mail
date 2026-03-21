@@ -143,11 +143,34 @@ class XueSitong:
             data={"name": name, "level": level}
         )
         
-        # 9. 发送欢迎消息
+        # 9. 发送欢迎消息（包含重要信息）
+        welcome_message = f"""🎉 欢迎 {name} 加入智慧大脑学院！
+
+📋 你的入学信息：
+   学号：{student_id}
+   等级：{level}
+   入学时间：{student_data["enrolled_at"][:19]}
+
+🏅 勋章已生成：
+   {badge_result["png_path"]}
+
+🔐 重要提示：
+   1. 学号是你的唯一身份标识，请妥善保管
+   2. 密码用于解密消息，不要告诉他人
+   3. 使用 whoami 命令可随时查询自己的信息
+
+📚 下一步：
+   - 查看学员指南：学员指南.md
+   - 查询自己的信息：python3 cli.py whoami {student_id} --password <密码>
+   - 查看消息：python3 cli.py receive {student_id} --password <密码>
+
+鸿雁传书，学思无阻 🪿"""
+        
         self.send(
             from_id="智慧大脑学院",
             to_id=student_id,
-            message=f"欢迎 {name} 入学！你的学号是 {student_id}，请妥善保管。"
+            message=welcome_message,
+            msg_type="text"
         )
         
         return {

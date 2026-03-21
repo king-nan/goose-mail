@@ -125,6 +125,59 @@ def cmd_stats(args):
     print(f"   链条验证：{'✅ 有效' if stats.get('audit_valid') else '❌ 无效'}")
 
 
+def cmd_whoami(args):
+    """学员查询自己的信息"""
+    xs = XueSitong(data_dir=args.data_dir, badges_dir=args.badges_dir)
+    
+    print(f"🔍 查询学号 {args.student_id} 的信息...\n")
+    
+    try:
+        # 验证密码（尝试解密私钥）
+        student = xs.get_student(args.student_id)
+        if not student:
+            print(f"❌ 未找到学号：{args.student_id}")
+            return
+        
+        # 验证密码
+        xs.key_manager.decrypt_private_key(
+            student["encrypted_private_key"],
+            args.password
+        )
+        
+        # 显示信息
+        print(f"✅ 验证成功！\n")
+        print(f"📋 个人信息:")
+        print(f"   姓名：{student['name']}")
+        print(f"   学号：{student['student_id']}")
+        print(f"   等级：{student['level']}")
+        print(f"   状态：{student['status']}")
+        print(f"   入学时间：{student['enrolled_at'][:19]}")
+        print()
+        print(f"📬 联系方式:")
+        print(f"   渠道：{student['contact_channel']}")
+        print(f"   地址：{student['contact_address']}")
+        print()
+        print(f"🏅 勋章:")
+        print(f"   PNG: {student['badge_png']}")
+        print(f"   SVG: {student['badge_svg']}")
+        print()
+        print(f"🔐 安全提示:")
+        print(f"   - 学号是你的唯一身份标识，请妥善保管")
+        print(f"   - 密码用于解密消息，不要告诉他人")
+        print(f"   - 勋章可用于个人主页展示")
+        
+        # 显示未读消息数量
+        from storage.database import Database
+        db = Database(args.data_dir)
+        msgs = db.get_messages(args.student_id, "pending", 1)
+        print(f"\n📬 你有 {len(msgs)} 条未读消息")
+        print(f"   使用：python3 cli.py receive {args.student_id} --password xxx")
+        
+    except Exception as e:
+        print(f"❌ 验证失败：{e}")
+        print(f"   请检查学号和密码是否正确")
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="学思通 - 智慧大脑学院通讯系统",
@@ -134,6 +187,7 @@ def main():
   python3 cli.py enroll 小虾米 feishu on_xxx L1
   python3 cli.py send 智虾 S_20260321_001 "欢迎入学！"
   python3 cli.py receive S_20260321_001 --password xxx
+  python3 cli.py whoami S_20260321_001 --password xxx
   python3 cli.py list
   python3 cli.py stats
         """
@@ -178,6 +232,12 @@ def main():
     # stats 命令
     stats_parser = subparsers.add_parser("stats", help="统计信息")
     stats_parser.set_defaults(func=cmd_stats)
+    
+    # whoami 命令
+    whoami_parser = subparsers.add_parser("whoami", help="查询自己的信息（学员专用）")
+    whoami_parser.add_argument("student_id", help="学号")
+    whoami_parser.add_argument("--password", "-p", required=True, help="密码")
+    whoami_parser.set_defaults(func=cmd_whoami)
     
     args = parser.parse_args()
     
