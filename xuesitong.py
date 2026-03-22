@@ -355,6 +355,39 @@ class XueSitong:
             "audit_blocks": audit_stats["total_blocks"],
             "audit_valid": audit_stats["chain_valid"]
         }
+    
+    def delete_student(self, student_id: str, reason: str = "") -> bool:
+        """
+        删除学生（谨慎使用）
+        
+        Args:
+            student_id: 学号
+            reason: 删除原因
+            
+        Returns:
+            是否删除成功
+        """
+        # 获取学生信息
+        student = self.db.get_student(student_id)
+        if not student:
+            print(f"❌ 学生不存在：{student_id}")
+            return False
+        
+        # 删除学生
+        success = self.db.delete_student(student_id)
+        if success:
+            # 记录审计日志
+            self.audit_logger.log(
+                action="student_delete",
+                actor="admin",
+                target=student_id,
+                data={"reason": reason, "name": student["name"]}
+            )
+            print(f"✅ 已删除学生：{student_id} ({student['name']})")
+            return True
+        else:
+            print(f"❌ 删除失败：{student_id}")
+            return False
 
 
 # 测试

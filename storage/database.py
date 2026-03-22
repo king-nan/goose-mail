@@ -276,6 +276,47 @@ class Database:
             "graduated_at": datetime.now().isoformat()
         })
     
+    def delete_student(self, student_id: str) -> bool:
+        """
+        删除学生及相关数据
+        
+        Args:
+            student_id: 学号
+            
+        Returns:
+            是否删除成功
+        """
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        
+        try:
+            # 删除学术记录
+            cursor.execute('DELETE FROM academic_records WHERE student_id = ?', (student_id,))
+            
+            # 删除贡献记录
+            cursor.execute('DELETE FROM contributions WHERE student_id = ?', (student_id,))
+            
+            # 删除荣誉记录
+            cursor.execute('DELETE FROM honors WHERE student_id = ?', (student_id,))
+            
+            # 删除消息（发送和接收的）
+            cursor.execute('DELETE FROM messages WHERE to_id = ? OR from_id = ?', (student_id, student_id))
+            
+            # 删除作业提交
+            cursor.execute('DELETE FROM submissions WHERE student_id = ?', (student_id,))
+            
+            # 删除学生基本信息
+            cursor.execute('DELETE FROM students WHERE student_id = ?', (student_id,))
+            
+            conn.commit()
+            return cursor.rowcount > 0
+        except Exception as e:
+            print(f"删除学生失败：{e}")
+            conn.rollback()
+            return False
+        finally:
+            conn.close()
+    
     # ========== 学术记录 ==========
     
     def add_academic_record(self, student_id: str, record_type: str, 
