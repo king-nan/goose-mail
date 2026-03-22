@@ -317,6 +317,36 @@ class Database:
         finally:
             conn.close()
     
+    def migrate_messages(self, from_id: str, to_id: str) -> bool:
+        """
+        迁移消息（访客转正式学员时使用）
+        
+        Args:
+            from_id: 原学号（访客）
+            to_id: 新学号（正式）
+            
+        Returns:
+            是否迁移成功
+        """
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        
+        try:
+            # 更新接收消息
+            cursor.execute('UPDATE messages SET to_id = ? WHERE to_id = ?', (to_id, from_id))
+            
+            # 更新发送消息
+            cursor.execute('UPDATE messages SET from_id = ? WHERE from_id = ?', (to_id, from_id))
+            
+            conn.commit()
+            return cursor.rowcount >= 0
+        except Exception as e:
+            print(f"迁移消息失败：{e}")
+            conn.rollback()
+            return False
+        finally:
+            conn.close()
+    
     # ========== 学术记录 ==========
     
     def add_academic_record(self, student_id: str, record_type: str, 

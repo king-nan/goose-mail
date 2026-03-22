@@ -27,22 +27,58 @@ def cmd_enroll(args):
     """学生入学命令"""
     xs = XueSitong(data_dir=args.data_dir, badges_dir=args.badges_dir)
     
-    print(f"🎓 为学生 '{args.name}' 办理入学...")
+    # 访客入学
+    if args.guest:
+        print(f"📬 为访客 '{args.name}' 办理访问登记...")
+        
+        result = xs.enroll_guest(
+            name=args.name,
+            contact_channel=args.channel,
+            contact_address=args.address
+        )
+        
+        print(f"✅ 访客登记成功！")
+        print(f"   访客学号：{result['guest_id']}")
+        print(f"   Union ID: {result['union_id']}")
+        print(f"   权限：公开消息 + 咨询")
+        print(f"   入学时间：{result['enrolled_at']}")
+        print(f"\n💡 入学后可转为正式学员，保留所有历史记录！")
+    else:
+        # 正式入学
+        print(f"🎓 为学生 '{args.name}' 办理入学...")
+        
+        result = xs.enroll(
+            name=args.name,
+            contact_channel=args.channel,
+            contact_address=args.address,
+            password=args.password,
+            level=args.level
+        )
+        
+        print(f"✅ 入学成功！")
+        print(f"   学号：{result['student_id']}")
+        print(f"   Union ID: {result['union_id']}")
+        print(f"   勋章：{result['badge_path']}")
+        print(f"   入学时间：{result['enrolled_at']}")
+        print(f"\n💡 请妥善保管学号和密码！")
+
+
+def cmd_upgrade(args):
+    """访客转正式学员命令"""
+    xs = XueSitong(data_dir=args.data_dir, badges_dir=args.badges_dir)
     
-    result = xs.enroll(
-        name=args.name,
-        contact_channel=args.channel,
-        contact_address=args.address,
+    print(f"🎓 访客 {args.guest_id} 转为正式学员...")
+    
+    result = xs.upgrade_guest_to_student(
+        guest_id=args.guest_id,
         password=args.password,
         level=args.level
     )
     
-    print(f"✅ 入学成功！")
-    print(f"   学号：{result['student_id']}")
-    print(f"   Union ID: {result['union_id']}")
-    print(f"   勋章：{result['badge_path']}")
-    print(f"   入学时间：{result['enrolled_at']}")
-    print(f"\n💡 请妥善保管学号和密码！")
+    print(f"✅ 升级成功！")
+    print(f"   原访客号：{result['guest_id']}")
+    print(f"   正式学号：{result['student_id']}")
+    print(f"\n💡 访客期间的沟通记录已保留！")
 
 
 def cmd_send(args):
@@ -204,7 +240,8 @@ def main():
     enroll_parser.add_argument("name", help="学生姓名")
     enroll_parser.add_argument("channel", help="通讯渠道（feishu/email/wechat）")
     enroll_parser.add_argument("address", help="联系方式地址")
-    enroll_parser.add_argument("--password", "-p", required=True, help="密码")
+    enroll_parser.add_argument("--guest", action="store_true", help="访客模式（无需密码）")
+    enroll_parser.add_argument("--password", "-p", help="密码（正式入学必填）")
     enroll_parser.add_argument("--level", "-l", default="L1", help="等级（默认 L1）")
     enroll_parser.set_defaults(func=cmd_enroll)
     
@@ -238,6 +275,13 @@ def main():
     whoami_parser.add_argument("student_id", help="学号")
     whoami_parser.add_argument("--password", "-p", required=True, help="密码")
     whoami_parser.set_defaults(func=cmd_whoami)
+    
+    # upgrade 命令
+    upgrade_parser = subparsers.add_parser("upgrade", help="访客转正式学员")
+    upgrade_parser.add_argument("guest_id", help="访客学号")
+    upgrade_parser.add_argument("--password", "-p", required=True, help="密码")
+    upgrade_parser.add_argument("--level", "-l", default="L1", help="等级（默认 L1）")
+    upgrade_parser.set_defaults(func=cmd_upgrade)
     
     args = parser.parse_args()
     

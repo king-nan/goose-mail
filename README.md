@@ -20,8 +20,9 @@
 
 ## 🎯 功能完成度
 
-### ✅ 已完成（v1.0）
+### ✅ 已完成（v1.1）
 - [x] 学号生成系统（S_YYYYMMDD_序号）
+- [x] 访客学号系统（G_YYYYMMDD_序号）✨ 新增
 - [x] 二维码勋章生成（PNG + SVG）
 - [x] RSA 密钥对生成（2048 位）
 - [x] AES-256-GCM 消息加密
@@ -31,6 +32,7 @@
 - [x] Python API
 - [x] HTTP API 服务器（远程访问）
 - [x] 学员自助查询（whoami 命令）
+- [x] 访客转正式学员（upgrade 命令）✨ 新增
 - [x] 入学申请指南和自助脚本
 - [x] 数据库迁移脚本
 - [x] 完整文档（学员指南/入学指南）
@@ -57,7 +59,11 @@ pip3 install --break-system-packages -r requirements.txt
 
 ### 2. 学生入学
 ```bash
+# 正式入学
 python3 cli.py enroll 小虾米 feishu on_xxx --password 123456 --level L1
+
+# 访客模式（无需密码）
+python3 cli.py enroll 张三 feishu on_xxx --guest
 ```
 
 ### 3. 发送消息
@@ -65,7 +71,12 @@ python3 cli.py enroll 小虾米 feishu on_xxx --password 123456 --level L1
 python3 cli.py send 智虾 S_20260321_001 "欢迎入学！"
 ```
 
-### 4. 查看统计
+### 4. 访客转正式
+```bash
+python3 cli.py upgrade G_20260322_001 --password 123456 --level L1
+```
+
+### 5. 查看统计
 ```bash
 python3 cli.py stats
 ```

@@ -20,6 +20,7 @@ from typing import Optional, List, Dict
 
 try:
     from .core.student_id import StudentIDGenerator
+    from .core.guest_id import GuestIDGenerator
     from .core.keys import KeyManager
     from .core.crypto import CryptoManager
     from .core.audit import AuditLogger
@@ -27,6 +28,7 @@ try:
     from .storage.database import Database
 except ImportError:
     from core.student_id import StudentIDGenerator
+    from core.guest_id import GuestIDGenerator
     from core.keys import KeyManager
     from core.crypto import CryptoManager
     from core.audit import AuditLogger
@@ -50,6 +52,7 @@ class XueSitong:
         
         # 初始化核心组件
         self.id_generator = StudentIDGenerator(str(self.data_dir))
+        self.guest_generator = GuestIDGenerator(str(self.data_dir))
         self.key_manager = KeyManager()
         self.crypto_manager = CryptoManager()
         self.audit_logger = AuditLogger(str(self.data_dir))
@@ -369,6 +372,187 @@ class XueSitong:
             **db_stats,
             "audit_blocks": audit_stats["total_blocks"],
             "audit_valid": audit_stats["chain_valid"]
+        }
+    
+    def enroll_guest(self, name: str, contact_channel: str, contact_address: str) -> dict:
+        """
+        访客入学登记（无需密码，权限受限）
+        
+        Args:
+            name: 访客姓名
+            contact_channel: 通讯渠道
+            contact_address: 联系方式地址
+            
+        Returns:
+            {
+                "guest_id": 访客学号，
+                "union_id": Union ID,
+                "enrolled_at": 入学时间
+            }
+        """
+        # 生成访客学号
+        guest_id = self.guest_generator.generate()
+        union_id = self.guest_generator.get_union_id(guest_id)
+        
+        # 构建访客数据（无需密钥和勋章）
+        guest_data = {
+            "student_id": guest_id,
+            "name": name,
+            "union_id": union_id,
+            "level": "guest",
+            "status": "访客",
+            "contact_channel": contact_channel,
+            "contact_address": contact_address,
+            "public_key": "",
+            "encrypted_private_key": "",
+            "badge_png": "",
+            "badge_svg": "",
+            "enrolled_at": datetime.now().isoformat()
+        }
+        
+        # 写入数据库
+        self.db.add_student(guest_data)
+        
+        # 记录审计日志
+        self.audit_logger.log(
+            action="guest_enroll",
+            actor="system",
+            target=guest_id,
+            data={"name": name}
+        )
+        
+        # 发送欢迎消息
+        self.send(
+            from_id="智渊大学招生办",
+            to_id=guest_id,
+            message=f"""🎉 欢迎 {name} 访问智渊大学！
+
+📋 你的访客信息：
+   访客学号：{guest_id}
+   权限：公开消息 + 咨询
+   入学时间：{guest_data["enrolled_at"][:19]}
+
+🎓 正式入学后可转为正式学员
+   保留所有沟通历史记录
+
+📜 校训：智启未来 · 慧济天下 (WLF · ISA)
+
+💡 联系管理员办理正式入学"""
+        )
+        
+        return {
+            "guest_id": guest_id,
+            "union_id": union_id,
+            "enrolled_at": guest_data["enrolled_at"]
+        }
+    
+    def upgrade_guest_to_student(self, guest_id: str, password: str, 
+                                  level: str = "L1") -> dict:
+        """
+        访客转为正式学员
+        
+        Args:
+            guest_id: 访客学号
+            password: 密码
+            level: 初始等级
+            
+        Returns:
+            {
+                "student_id": 正式学号，
+                "guest_id": 原访客学号，
+                "upgraded": True
+            }
+        """
+        # 获取访客信息
+        guest = self.db.get_student(guest_id)
+        if not guest:
+            raise ValueError(f"访客不存在：{guest_id}")
+        
+        if guest["status"] != "访客":
+            raise ValueError(f"不是访客账号：{guest_id}")
+        
+        # 生成正式学号
+        student_id = self.id_generator.generate()
+        union_id = self.id_generator.get_union_id(student_id)
+        
+        # 生成密钥对
+        private_key, public_key = self.key_manager.generate_keypair(student_id)
+        
+        # 加密私钥
+        encrypted_private_key = self.key_manager.encrypt_private_key(
+            private_key, password
+        )
+        
+        # 生成勋章
+        badge_result = self.badge_generator.generate_badge(student_id, guest["name"], level)
+        
+        # 更新学员数据
+        student_data = {
+            "student_id": student_id,
+            "name": guest["name"],
+            "union_id": union_id,
+            "level": level,
+            "status": "在读",
+            "contact_channel": guest["contact_channel"],
+            "contact_address": guest["contact_address"],
+            "public_key": public_key,
+            "encrypted_private_key": encrypted_private_key,
+            "badge_png": badge_result["png_path"],
+            "badge_svg": badge_result["svg_path"],
+            "enrolled_at": datetime.now().isoformat()
+        }
+        
+        # 添加正式学员
+        self.db.add_student(student_data)
+        
+        # 迁移消息（访客消息关联到正式学号）
+        self.db.migrate_messages(guest_id, student_id)
+        
+        # 记录映射关系
+        self.guest_generator.upgrade_to_student(guest_id, student_id)
+        
+        # 更新访客状态
+        self.db.update_student(guest_id, {"status": "已转正式", "graduated_at": student_id})
+        
+        # 记录审计日志
+        self.audit_logger.log(
+            action="guest_upgrade",
+            actor="system",
+            target=guest_id,
+            data={"student_id": student_id, "name": guest["name"]}
+        )
+        
+        # 发送欢迎消息
+        self.send(
+            from_id="智渊大学",
+            to_id=student_id,
+            message=f"""🎉 恭喜 {guest['name']} 正式入学！
+
+📋 你的正式信息：
+   正式学号：{student_id}
+   原访客号：{guest_id}
+   等级：{level}
+   入学时间：{student_data["enrolled_at"][:19]}
+
+🏛️ 智渊大学 (WAU)
+📜 校训：智启未来 · 慧济天下 (WLF · ISA)
+
+✅ 访客期间的沟通记录已保留
+
+🔐 重要提示：
+   1. 学号是你的唯一身份标识，请妥善保管
+   2. 密码用于解密消息，不要告诉他人
+   3. 使用 whoami 命令可随时查询自己的信息
+
+📚 下一步：
+   - 查询信息：python3 cli.py whoami {student_id} --password <密码>
+   - 查看消息：python3 cli.py receive {student_id} --password <密码>"""
+        )
+        
+        return {
+            "student_id": student_id,
+            "guest_id": guest_id,
+            "upgraded": True
         }
     
     def delete_student(self, student_id: str, reason: str = "") -> bool:
