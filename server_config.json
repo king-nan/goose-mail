@@ -2,5 +2,7 @@
   "server_url": "http://39.106.143.190:8080",
   "api_key": "goosemail_api_key_2026",
   "mode": "client",
-  "sync": true
+  "sync": false,
+  "use_server_accounts": true,
+  "note": "纯客户端模式，账号信息以服务器为准"
 }
