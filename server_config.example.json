@@ -1,0 +1,22 @@
+{
+  "version": "1.1.0",
+  "description": "鸿雁/GooseMail 配置模板 - 复制为 server_config.json 后修改",
+  
+  "mode": "client",
+  "note": "模式说明：client=客户端（学员）, server=服务器（管理员）",
+  
+  "server_url": "http://39.106.143.190:8080",
+  "note_server": "服务器地址（仅客户端模式需要）",
+  
+  "api_key": "goosemail_api_key_2026",
+  "note_api": "API 密钥（客户端和服务器都需要）",
+  
+  "sync": false,
+  "note_sync": "是否同步数据到本地（客户端建议 false）",
+  
+  "use_server_accounts": true,
+  "note_accounts": "是否使用服务器端账号（客户端建议 true）",
+  
+  "local_storage": false,
+  "note_local": "是否在本地存储数据（客户端建议 false）"
+}

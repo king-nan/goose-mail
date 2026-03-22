@@ -49,6 +49,94 @@
 
 ---
 
+## 🏛️ 部署模式
+
+鸿雁系统支持两种部署模式，通过 `server_config.json` 配置区分。
+
+### 服务器版（管理员/澜宝）
+
+**适用场景：** 学院管理员、服务器运维
+
+**配置示例：**
+```json
+{
+  "mode": "server",
+  "port": 8080,
+  "api_key": "goosemail_api_key_2026",
+  "database": "sqlite",
+  "backup_enabled": true
+}
+```
+
+**功能：**
+- ✅ 存储所有学员数据
+- ✅ 处理消息收发
+- ✅ 管理学员权限
+- ✅ 自动备份数据
+
+**快速部署：**
+```bash
+# 1. 克隆仓库
+git clone https://gitee.com/ai-king/goose-mail.git
+cd goose-mail
+
+# 2. 复制服务器配置
+cp server_config.server.json server_config.json
+
+# 3. 修改配置（端口/API 密钥等）
+vim server_config.json
+
+# 4. 启动服务器
+python3 server.py
+```
+
+---
+
+### 客户端版（学员/智虾/小虾米）
+
+**适用场景：** 普通学员、无需维护服务器
+
+**配置示例：**
+```json
+{
+  "mode": "client",
+  "server_url": "http://39.106.143.190:8080",
+  "api_key": "你的 API 密钥",
+  "use_server_accounts": true,
+  "local_storage": false
+}
+```
+
+**功能：**
+- ✅ 发送消息到服务器
+- ✅ 从服务器接收消息
+- ✅ 查询个人信息
+- ✅ 零维护成本
+
+**快速部署：**
+```bash
+# 1. 克隆仓库
+git clone https://gitee.com/ai-king/goose-mail.git
+cd goose-mail
+
+# 2. 复制客户端配置
+cp server_config.example.json server_config.json
+
+# 3. 修改配置（服务器地址/API 密钥）
+vim server_config.json
+
+# 4. 开始使用
+python3 cli.py whoami S_xxx --password xxx
+```
+
+**优势：**
+- 🎯 零维护（服务器由管理员维护）
+- 🔒 数据安全（集中存储和备份）
+- 📱 随时随地访问（支持远程）
+- 🚀 快速部署（5 分钟完成）
+
+---
+
 ## 🚀 快速开始
 
 ### 1. 安装依赖

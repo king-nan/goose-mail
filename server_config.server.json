@@ -1,0 +1,31 @@
+{
+  "version": "1.1.0",
+  "description": "鸿雁/GooseMail 服务器版配置示例",
+  
+  "mode": "server",
+  "note": "服务器模式（管理员/澜宝）",
+  
+  "port": 8080,
+  "note_port": "HTTP API 监听端口",
+  
+  "api_key": "goosemail_api_key_2026",
+  "note_api": "API 密钥（用于客户端认证）",
+  
+  "database": "sqlite",
+  "note_db": "数据库类型（sqlite/mysql）",
+  
+  "database_path": "./data/students.db",
+  "note_db_path": "SQLite 数据库路径",
+  
+  "backup_enabled": true,
+  "note_backup": "是否启用自动备份",
+  
+  "backup_time": "02:00",
+  "note_backup_time": "每天备份时间（24 小时制）",
+  
+  "log_level": "INFO",
+  "note_log": "日志级别（DEBUG/INFO/WARNING/ERROR）",
+  
+  "max_connections": 100,
+  "note_conn": "最大并发连接数"
+}
